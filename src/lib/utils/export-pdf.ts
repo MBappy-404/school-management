@@ -1,7 +1,10 @@
 "use client";
 
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+// html2canvas-pro is a maintained fork that natively supports modern CSS
+// color functions (oklch, lab, lch) emitted by Tailwind v4. The original
+// html2canvas crashes on these with "unsupported color function".
+import html2canvas from "html2canvas-pro";
 
 import { SCHOOL_INFO } from "@/lib/mock-data/reports";
 
@@ -27,29 +30,11 @@ export async function exportElementToPdf(
   const originalClassName = element.className;
   element.classList.add("pdf-capture");
 
-  // Get computed background; html2canvas can fail on oklch() so we
-  // pre-paint it white.
-  const bg = "#ffffff";
-
   const canvas = await html2canvas(element, {
-    backgroundColor: bg,
+    backgroundColor: "#ffffff",
     scale: 2,
     useCORS: true,
     logging: false,
-    onclone: (doc) => {
-      // Replace any oklch / lch colours with safe fallbacks during capture.
-      const all = doc.querySelectorAll<HTMLElement>("*");
-      all.forEach((el) => {
-        const style = doc.defaultView?.getComputedStyle(el);
-        if (!style) return;
-        ["color", "backgroundColor", "borderColor"].forEach((prop) => {
-          const v = style.getPropertyValue(prop);
-          if (v && (v.includes("oklch") || v.includes("lch"))) {
-            (el.style as unknown as Record<string, string>)[prop] = "";
-          }
-        });
-      });
-    },
   });
 
   element.className = originalClassName;

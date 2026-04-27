@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hind_Siliguri, Inter } from "next/font/google";
 
+import { AppShell } from "@/components/app-shell/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
@@ -32,8 +33,8 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${hindSiliguri.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background flex flex-col">
-        {children}
+      <body className="min-h-full bg-background">
+        <AppShell>{children}</AppShell>
         <Toaster richColors position="top-right" />
       </body>
     </html>

@@ -118,7 +118,7 @@ export default function AccountingPage() {
           delta={net >= 0 ? "Surplus" : "Deficit"}
           icon={ScaleIcon}
           tone={net >= 0 ? "emerald" : "rose"}
-          changePercent={(net / totalIncome) * 100}
+          changePercent={totalIncome > 0 ? (net / totalIncome) * 100 : 0}
         />
         <KpiTile
           label="Transactions"

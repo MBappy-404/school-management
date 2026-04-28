@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   ArrowLeftIcon,
@@ -138,8 +139,30 @@ export default function StudentsPage() {
 
   const columns = useMemo<ColumnDef<StudentRow>[]>(
     () => [
-      { accessorKey: "id", header: "Student ID" },
-      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "id",
+        header: "Student ID",
+        cell: ({ row }) => (
+          <Link
+            href={`/students/${row.original.id}`}
+            className="font-mono text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            {row.original.id}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <Link
+            href={`/students/${row.original.id}`}
+            className="font-medium hover:text-indigo-600 hover:underline"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
       {
         accessorKey: "className",
         header: "Class",

@@ -32,7 +32,8 @@ import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FormField } from "@/components/dashboard/form-field";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { NOTICES, type Notice } from "@/lib/mock-data/notices";
+import { type Notice } from "@/lib/mock-data/notices";
+import { useSchoolStore } from "@/lib/store/school-store";
 
 const CATEGORY_TONE: Record<Notice["category"], string> = {
   Academic: "bg-indigo-50 text-indigo-700 border-indigo-200",
@@ -73,7 +74,10 @@ function formatRelative(iso: string): string {
 }
 
 export default function NoticesPage() {
-  const [notices, setNotices] = useState<Notice[]>(NOTICES);
+  const notices = useSchoolStore((s) => s.notices);
+  const publishNotice = useSchoolStore((s) => s.publishNotice);
+  const togglePinNotice = useSchoolStore((s) => s.togglePinNotice);
+  const removeNotice = useSchoolStore((s) => s.removeNotice);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [audienceFilter, setAudienceFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -120,18 +124,16 @@ export default function NoticesPage() {
       pinned: form.pinned,
       publishedAt: new Date().toISOString().slice(0, 10),
     };
-    setNotices((prev) => [newNotice, ...prev]);
+    publishNotice(newNotice);
     toast.success(`Published "${newNotice.title}"`);
     setDialogOpen(false);
   }
   function togglePin(id: string) {
-    setNotices((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
-    );
+    togglePinNotice(id);
   }
   function handleDelete() {
     if (!deleteId) return;
-    setNotices((prev) => prev.filter((n) => n.id !== deleteId));
+    removeNotice(deleteId);
     toast.success("Notice removed");
     setDeleteId(null);
   }

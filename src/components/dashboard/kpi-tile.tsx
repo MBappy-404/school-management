@@ -50,7 +50,20 @@ export function KpiTile({
 }: KpiTileProps) {
   const positive = changePercent !== undefined && changePercent >= 0;
   return (
-    <div className="tile-sheen group relative overflow-hidden rounded-2xl border bg-card p-4 transition-all hover:border-foreground/15 hover:shadow-sm">
+    <div className="tile-sheen group relative overflow-hidden rounded-2xl border bg-card p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-md">
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-px opacity-0 transition-opacity duration-300 group-hover:opacity-100",
+          tone === "indigo" && "bg-gradient-to-r from-transparent via-indigo-500 to-transparent",
+          tone === "emerald" && "bg-gradient-to-r from-transparent via-emerald-500 to-transparent",
+          tone === "amber" && "bg-gradient-to-r from-transparent via-amber-500 to-transparent",
+          tone === "rose" && "bg-gradient-to-r from-transparent via-rose-500 to-transparent",
+          tone === "violet" && "bg-gradient-to-r from-transparent via-violet-500 to-transparent",
+          tone === "sky" && "bg-gradient-to-r from-transparent via-sky-500 to-transparent",
+          tone === "teal" && "bg-gradient-to-r from-transparent via-teal-500 to-transparent",
+        )}
+      />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

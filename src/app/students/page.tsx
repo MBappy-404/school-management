@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   ArrowLeftIcon,
+  DownloadIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -33,12 +34,10 @@ import {
 import { DataTable } from "@/components/reports/data-table";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FormField } from "@/components/dashboard/form-field";
-import {
-  CLASS_OPTIONS,
-  SECTION_OPTIONS,
-  STUDENTS,
-} from "@/lib/mock-data/reports";
+import { CLASS_OPTIONS, SECTION_OPTIONS } from "@/lib/mock-data/reports";
+import { useSchoolStore } from "@/lib/store/school-store";
 import type { Gender, StudentRow } from "@/lib/types/reports";
+import { downloadStudentsExcel } from "@/lib/utils/page-exports";
 
 type Status = StudentRow["status"];
 
@@ -74,7 +73,10 @@ const blankForm = (): StudentFormState => ({
 });
 
 export default function StudentsPage() {
-  const [rows, setRows] = useState<StudentRow[]>(STUDENTS);
+  const rows = useSchoolStore((s) => s.students);
+  const addStudent = useSchoolStore((s) => s.addStudent);
+  const updateStudent = useSchoolStore((s) => s.updateStudent);
+  const removeStudent = useSchoolStore((s) => s.removeStudent);
   const [classFilter, setClassFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -117,13 +119,10 @@ export default function StudentsPage() {
   function handleSubmit() {
     if (!validate()) return;
     if (editing) {
-      setRows((prev) =>
-        prev.map((r) => (r.id === editing.id ? { ...editing, ...form } : r)),
-      );
+      updateStudent(editing.id, form);
       toast.success(`Updated ${form.name}`);
     } else {
-      const newRow: StudentRow = { ...form };
-      setRows((prev) => [newRow, ...prev]);
+      addStudent({ ...form });
       toast.success(`Added ${form.name}`);
     }
     setDialogOpen(false);
@@ -132,9 +131,14 @@ export default function StudentsPage() {
   function handleDelete() {
     if (!deleteId) return;
     const target = rows.find((r) => r.id === deleteId);
-    setRows((prev) => prev.filter((r) => r.id !== deleteId));
+    removeStudent(deleteId);
     toast.success(`Removed ${target?.name ?? deleteId}`);
     setDeleteId(null);
+  }
+
+  function handleExport() {
+    downloadStudentsExcel(filtered);
+    toast.success(`Exported ${filtered.length} students`);
   }
 
   const columns = useMemo<ColumnDef<StudentRow>[]>(
@@ -226,9 +230,14 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student admissions, class assignments and status."
         actions={
-          <Button onClick={openCreate}>
-            <PlusIcon /> Add Student
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <DownloadIcon /> Export Excel
+            </Button>
+            <Button onClick={openCreate}>
+              <PlusIcon /> Add Student
+            </Button>
+          </div>
         }
       />
 

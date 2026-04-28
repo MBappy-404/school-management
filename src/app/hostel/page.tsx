@@ -1,14 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { BedDoubleIcon, BuildingIcon, KeyIcon, UsersIcon } from "lucide-react";
+import {
+  BedDoubleIcon,
+  BuildingIcon,
+  KeyIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { HOSTEL_ROOMS } from "@/lib/mock-data/extended";
+import type { HostelRoom } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
 
 const BLOCK_GRADIENTS: Record<string, string> = {
@@ -18,7 +43,17 @@ const BLOCK_GRADIENTS: Record<string, string> = {
 };
 
 export default function HostelPage() {
+  const HOSTEL_ROOMS = useSchoolStore((s) => s.hostelRooms);
+  const addHostelRoom = useSchoolStore((s) => s.addHostelRoom);
   const [block, setBlock] = useState<string>("All");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    block: "Boys A" as HostelRoom["block"],
+    roomNo: "",
+    capacity: 4,
+    monthlyFee: 3000,
+    warden: "",
+  });
 
   const filtered = HOSTEL_ROOMS.filter(
     (r) => block === "All" || r.block === block,
@@ -39,6 +74,11 @@ export default function HostelPage() {
       <PageHeader
         title="Hostel"
         description="ছাত্রাবাস — room inventory, occupancy and warden assignment."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <PlusIcon /> Add Room
+          </Button>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -145,6 +185,104 @@ export default function HostelPage() {
           })}
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Hostel Room</DialogTitle>
+            <DialogDescription>
+              Register a new room with block, capacity and warden.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Block">
+              <Select
+                value={form.block}
+                onValueChange={(v) =>
+                  setForm({
+                    ...form,
+                    block: (v as HostelRoom["block"]) ?? "Boys A",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Boys A">Boys A</SelectItem>
+                  <SelectItem value="Boys B">Boys B</SelectItem>
+                  <SelectItem value="Girls A">Girls A</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Room No">
+              <Input
+                value={form.roomNo}
+                onChange={(e) => setForm({ ...form, roomNo: e.target.value })}
+                placeholder="A-101"
+              />
+            </FormField>
+            <FormField label="Capacity">
+              <Input
+                type="number"
+                value={form.capacity}
+                onChange={(e) =>
+                  setForm({ ...form, capacity: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Monthly Fee">
+              <Input
+                type="number"
+                value={form.monthlyFee}
+                onChange={(e) =>
+                  setForm({ ...form, monthlyFee: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Warden" className="sm:col-span-2">
+              <Input
+                value={form.warden}
+                onChange={(e) => setForm({ ...form, warden: e.target.value })}
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!form.roomNo.trim() || !form.warden.trim()) {
+                  toast.error("Room No and Warden required");
+                  return;
+                }
+                const room: HostelRoom = {
+                  id: `HR-${Date.now().toString().slice(-5)}`,
+                  block: form.block,
+                  roomNo: form.roomNo.trim(),
+                  capacity: form.capacity,
+                  occupied: 0,
+                  monthlyFee: form.monthlyFee,
+                  warden: form.warden.trim(),
+                };
+                addHostelRoom(room);
+                toast.success(`Added Room ${room.roomNo}`);
+                setCreateOpen(false);
+                setForm({
+                  block: "Boys A",
+                  roomNo: "",
+                  capacity: 4,
+                  monthlyFee: 3000,
+                  warden: "",
+                });
+              }}
+            >
+              Add Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

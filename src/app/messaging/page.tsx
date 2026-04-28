@@ -26,10 +26,11 @@ import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
   SMS_TEMPLATES,
-  SMS_LOGS,
   type SmsTemplate,
   type AudienceType,
+  type SmsLog,
 } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 
 const STATUS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
   Delivered: "success",
@@ -38,6 +39,8 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
 };
 
 export default function MessagingPage() {
+  const SMS_LOGS = useSchoolStore((s) => s.smsLogs);
+  const sendSms = useSchoolStore((s) => s.sendSms);
   const [selected, setSelected] = useState<SmsTemplate>(SMS_TEMPLATES[0]!);
   const [audience, setAudience] = useState<AudienceType>(selected.audience);
   const [body, setBody] = useState(selected.body);
@@ -52,8 +55,28 @@ export default function MessagingPage() {
   }
 
   function handleSend() {
+    const recipients =
+      audience === "All"
+        ? 240
+        : audience === "Students"
+          ? 180
+          : audience === "Teachers"
+            ? 24
+            : audience === "Guardians"
+              ? 200
+              : 32;
+    const log: SmsLog = {
+      id: `SMS-${Date.now().toString().slice(-6)}`,
+      templateName: selected.name,
+      audience,
+      recipients,
+      status: "Queued",
+      sentAt: new Date().toISOString().slice(0, 16).replace("T", " "),
+      preview: body.slice(0, 80),
+    };
+    sendSms(log);
     toast.success("SMS queued for delivery", {
-      description: `Audience: ${audience} · ${body.length} characters`,
+      description: `Audience: ${audience} · ${recipients} recipients`,
     });
   }
 

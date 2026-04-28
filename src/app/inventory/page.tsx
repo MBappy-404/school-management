@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import {
   AlertCircleIcon,
   BoxesIcon,
+  DownloadIcon,
   PackageIcon,
   PackagePlusIcon,
   TrendingDownIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,8 +24,19 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { INVENTORY } from "@/lib/mock-data/extended";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
+import type { InventoryItem } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
+import { downloadInventoryExcel } from "@/lib/utils/page-exports";
 
 const CATEGORY_TONE: Record<string, "indigo" | "violet" | "success" | "warning" | "info" | "danger"> = {
   Stationery: "indigo",
@@ -42,9 +55,33 @@ function formatDate(iso: string) {
   });
 }
 
+interface InvForm {
+  name: string;
+  category: InventoryItem["category"];
+  unit: string;
+  inStock: number;
+  reorderLevel: number;
+  unitPrice: number;
+  supplier: string;
+}
+
+const blankInv = (): InvForm => ({
+  name: "",
+  category: "Stationery",
+  unit: "pcs",
+  inStock: 50,
+  reorderLevel: 10,
+  unitPrice: 100,
+  supplier: "",
+});
+
 export default function InventoryPage() {
+  const INVENTORY = useSchoolStore((s) => s.inventory);
+  const addInventory = useSchoolStore((s) => s.addInventory);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState<InvForm>(blankInv);
 
   const filtered = useMemo(() => {
     return INVENTORY.filter((it) => {
@@ -58,7 +95,29 @@ export default function InventoryPage() {
         return false;
       return true;
     });
-  }, [search, catFilter]);
+  }, [INVENTORY, search, catFilter]);
+
+  function submitItem() {
+    if (!form.name.trim() || !form.supplier.trim()) {
+      toast.error("Name and supplier are required");
+      return;
+    }
+    const item: InventoryItem = {
+      id: `INV-${Date.now().toString().slice(-6)}`,
+      name: form.name.trim(),
+      category: form.category,
+      unit: form.unit,
+      inStock: form.inStock,
+      reorderLevel: form.reorderLevel,
+      unitPrice: form.unitPrice,
+      supplier: form.supplier.trim(),
+      lastPurchased: new Date().toISOString().slice(0, 10),
+    };
+    addInventory(item);
+    toast.success(`Added ${item.name}`);
+    setCreateOpen(false);
+    setForm(blankInv());
+  }
 
   const totalItems = INVENTORY.length;
   const lowStock = INVENTORY.filter((i) => i.inStock <= i.reorderLevel).length;
@@ -73,9 +132,21 @@ export default function InventoryPage() {
         title="Inventory"
         description="মজুদ — stock items, reorder levels and supplier records."
         actions={
-          <Button>
-            <PackagePlusIcon /> Record Purchase
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadInventoryExcel(filtered);
+                toast.success(`Exported ${filtered.length} items`);
+              }}
+            >
+              <DownloadIcon /> Export Excel
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <PackagePlusIcon /> Record Purchase
+            </Button>
+          </div>
         }
       />
 
@@ -188,6 +259,96 @@ export default function InventoryPage() {
           </table>
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Record Purchase / Add Item</DialogTitle>
+            <DialogDescription>
+              Add a new inventory item to stock.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Item Name" className="sm:col-span-2">
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Category">
+              <Select
+                value={form.category}
+                onValueChange={(v) =>
+                  setForm({
+                    ...form,
+                    category:
+                      (v as InventoryItem["category"]) ?? "Stationery",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Stationery">Stationery</SelectItem>
+                  <SelectItem value="Lab">Lab</SelectItem>
+                  <SelectItem value="Sports">Sports</SelectItem>
+                  <SelectItem value="Furniture">Furniture</SelectItem>
+                  <SelectItem value="IT">IT</SelectItem>
+                  <SelectItem value="Cleaning">Cleaning</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Unit">
+              <Input
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+              />
+            </FormField>
+            <FormField label="In Stock">
+              <Input
+                type="number"
+                value={form.inStock}
+                onChange={(e) =>
+                  setForm({ ...form, inStock: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Reorder Level">
+              <Input
+                type="number"
+                value={form.reorderLevel}
+                onChange={(e) =>
+                  setForm({ ...form, reorderLevel: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Unit Price (BDT)">
+              <Input
+                type="number"
+                value={form.unitPrice}
+                onChange={(e) =>
+                  setForm({ ...form, unitPrice: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Supplier">
+              <Input
+                value={form.supplier}
+                onChange={(e) =>
+                  setForm({ ...form, supplier: e.target.value })
+                }
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitItem}>Add Item</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

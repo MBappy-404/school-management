@@ -20,14 +20,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { FormField } from "@/components/dashboard/form-field";
 import {
-  LEAVE_REQUESTS,
   type LeaveRequest,
   type LeaveStatus,
+  type LeaveType,
 } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 
 const STATUS_VARIANT: Record<LeaveStatus, "warning" | "success" | "danger"> = {
   Pending: "warning",
@@ -42,10 +53,39 @@ function formatDate(iso: string) {
   });
 }
 
+interface LeaveForm {
+  staffName: string;
+  designation: string;
+  type: LeaveType;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+}
+
+function daysBetween(a: string, b: string): number {
+  const ms = new Date(b).getTime() - new Date(a).getTime();
+  return Math.max(1, Math.round(ms / 86400000) + 1);
+}
+
+const blankLeaveForm = (): LeaveForm => ({
+  staffName: "",
+  designation: "Assistant Teacher",
+  type: "Casual",
+  fromDate: new Date().toISOString().slice(0, 10),
+  toDate: new Date().toISOString().slice(0, 10),
+  reason: "",
+});
+
 export default function LeavePage() {
-  const [rows, setRows] = useState<LeaveRequest[]>(LEAVE_REQUESTS);
+  const rows = useSchoolStore((s) => s.leaves);
+  const teachers = useSchoolStore((s) => s.teachers);
+  const addLeave = useSchoolStore((s) => s.addLeave);
+  const updateLeave = useSchoolStore((s) => s.updateLeave);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState<LeaveForm>(blankLeaveForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -69,8 +109,36 @@ export default function LeavePage() {
   };
 
   function update(id: string, status: LeaveStatus) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    updateLeave(id, { status });
     toast.success(`Leave ${status.toLowerCase()}`);
+  }
+
+  function submitLeave() {
+    const e: Record<string, string> = {};
+    if (!form.staffName.trim()) e.staffName = "Required";
+    if (!form.reason.trim()) e.reason = "Required";
+    if (form.toDate < form.fromDate) e.toDate = "Must be after start";
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    const days = daysBetween(form.fromDate, form.toDate);
+    const matching = teachers.find((t) => t.name === form.staffName);
+    const leave: LeaveRequest = {
+      id: `LV-${Date.now().toString().slice(-6)}`,
+      staffId: matching?.id ?? `TCH-${Date.now().toString().slice(-4)}`,
+      staffName: form.staffName.trim(),
+      designation: form.designation,
+      type: form.type,
+      fromDate: form.fromDate,
+      toDate: form.toDate,
+      days,
+      reason: form.reason.trim(),
+      status: "Pending",
+      appliedOn: new Date().toISOString().slice(0, 10),
+    };
+    addLeave(leave);
+    toast.success(`Leave applied: ${days} day(s)`);
+    setCreateOpen(false);
+    setForm(blankLeaveForm());
   }
 
   return (
@@ -79,7 +147,7 @@ export default function LeavePage() {
         title="HR · Leave Management"
         description="ছুটি — staff leave applications, approvals and history."
         actions={
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <PlusIcon /> New Leave
           </Button>
         }
@@ -202,6 +270,82 @@ export default function LeavePage() {
           </table>
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Leave Request</DialogTitle>
+            <DialogDescription>
+              Submit a new leave request for staff.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Staff Name" error={errors.staffName} className="sm:col-span-2">
+              <Input
+                value={form.staffName}
+                onChange={(e) => setForm({ ...form, staffName: e.target.value })}
+                placeholder="Md. Jahangir Alam"
+              />
+            </FormField>
+            <FormField label="Designation">
+              <Input
+                value={form.designation}
+                onChange={(e) =>
+                  setForm({ ...form, designation: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Type">
+              <Select
+                value={form.type}
+                onValueChange={(v) =>
+                  setForm({ ...form, type: (v as LeaveType) ?? "Casual" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Casual">Casual</SelectItem>
+                  <SelectItem value="Sick">Sick</SelectItem>
+                  <SelectItem value="Earned">Earned</SelectItem>
+                  <SelectItem value="Maternity">Maternity</SelectItem>
+                  <SelectItem value="Study">Study</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="From">
+              <Input
+                type="date"
+                value={form.fromDate}
+                onChange={(e) =>
+                  setForm({ ...form, fromDate: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="To" error={errors.toDate}>
+              <Input
+                type="date"
+                value={form.toDate}
+                onChange={(e) => setForm({ ...form, toDate: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Reason" error={errors.reason} className="sm:col-span-2">
+              <Textarea
+                rows={3}
+                value={form.reason}
+                onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitLeave}>Submit Leave</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

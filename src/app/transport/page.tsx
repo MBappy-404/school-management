@@ -1,21 +1,48 @@
 "use client";
 
+import { useState } from "react";
 import {
   BusIcon,
   GaugeIcon,
   MapPinIcon,
   PhoneIcon,
+  PlusIcon,
   UserIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { BUS_ROUTES } from "@/lib/mock-data/extended";
+import type { BusRoute } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
 
 export default function TransportPage() {
+  const BUS_ROUTES = useSchoolStore((s) => s.busRoutes);
+  const addBusRoute = useSchoolStore((s) => s.addBusRoute);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    driver: "",
+    driverPhone: "",
+    vehicleNo: "",
+    capacity: 30,
+    monthlyFee: 1500,
+    pickupPoints: "",
+  });
   const totalCapacity = BUS_ROUTES.reduce((s, r) => s + r.capacity, 0);
   const totalOccupied = BUS_ROUTES.reduce((s, r) => s + r.occupied, 0);
   const monthlyRevenue = BUS_ROUTES.reduce(
@@ -29,6 +56,11 @@ export default function TransportPage() {
       <PageHeader
         title="Transport"
         description="পরিবহন — bus routes, drivers, capacity and student assignments."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <PlusIcon /> Add Route
+          </Button>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -151,6 +183,120 @@ export default function TransportPage() {
           })}
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Bus Route</DialogTitle>
+            <DialogDescription>
+              Register a new transport route with driver and pickup points.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Route Name" className="sm:col-span-2">
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Mirpur - Uttara"
+              />
+            </FormField>
+            <FormField label="Driver">
+              <Input
+                value={form.driver}
+                onChange={(e) => setForm({ ...form, driver: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Driver Phone">
+              <Input
+                value={form.driverPhone}
+                onChange={(e) =>
+                  setForm({ ...form, driverPhone: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Vehicle No">
+              <Input
+                value={form.vehicleNo}
+                onChange={(e) =>
+                  setForm({ ...form, vehicleNo: e.target.value })
+                }
+                placeholder="DHA-METRO-XX-1234"
+              />
+            </FormField>
+            <FormField label="Capacity">
+              <Input
+                type="number"
+                value={form.capacity}
+                onChange={(e) =>
+                  setForm({ ...form, capacity: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Monthly Fee">
+              <Input
+                type="number"
+                value={form.monthlyFee}
+                onChange={(e) =>
+                  setForm({ ...form, monthlyFee: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField
+              label="Pickup Points (comma separated)"
+              className="sm:col-span-2"
+            >
+              <Input
+                value={form.pickupPoints}
+                onChange={(e) =>
+                  setForm({ ...form, pickupPoints: e.target.value })
+                }
+                placeholder="Mirpur 10, Kalshi, Airport, School"
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!form.name.trim() || !form.driver.trim()) {
+                  toast.error("Route name and driver required");
+                  return;
+                }
+                const route: BusRoute = {
+                  id: `BUS-${Date.now().toString().slice(-5)}`,
+                  name: form.name.trim(),
+                  driver: form.driver.trim(),
+                  driverPhone: form.driverPhone || "01XXXXXXXXX",
+                  vehicleNo: form.vehicleNo || "DHAKA-METRO",
+                  capacity: form.capacity,
+                  occupied: 0,
+                  pickupPoints: form.pickupPoints
+                    .split(",")
+                    .map((p) => p.trim())
+                    .filter(Boolean),
+                  monthlyFee: form.monthlyFee,
+                };
+                addBusRoute(route);
+                toast.success(`Added route ${route.name}`);
+                setCreateOpen(false);
+                setForm({
+                  name: "",
+                  driver: "",
+                  driverPhone: "",
+                  vehicleNo: "",
+                  capacity: 30,
+                  monthlyFee: 1500,
+                  pickupPoints: "",
+                });
+              }}
+            >
+              Add Route
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

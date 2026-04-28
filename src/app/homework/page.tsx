@@ -23,10 +23,21 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
-  HOMEWORK,
   type Homework,
   type HomeworkStatus,
 } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 const STATUS_VARIANT: Record<
   HomeworkStatus,
@@ -46,9 +57,22 @@ function formatDate(iso: string) {
 }
 
 export default function HomeworkPage() {
+  const HOMEWORK = useSchoolStore((s) => s.homework);
+  const addHomework = useSchoolStore((s) => s.addHomework);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState(() => ({
+    title: "",
+    subject: "Bangla",
+    className: "6",
+    teacher: "Md. Ashraful Islam",
+    description: "",
+    dueDate: new Date(Date.now() + 3 * 86400000)
+      .toISOString()
+      .slice(0, 10),
+  }));
 
   const filtered: Homework[] = useMemo(() => {
     return HOMEWORK.filter((h) => {
@@ -63,7 +87,7 @@ export default function HomeworkPage() {
         return false;
       return true;
     });
-  }, [search, classFilter, statusFilter]);
+  }, [HOMEWORK, search, classFilter, statusFilter]);
 
   const counts = {
     total: HOMEWORK.length,
@@ -78,7 +102,7 @@ export default function HomeworkPage() {
         title="Homework / Daily Diary"
         description="বাড়ির কাজ — track assignments and student submissions."
         actions={
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <PlusIcon /> Assign Homework
           </Button>
         }
@@ -192,6 +216,108 @@ export default function HomeworkPage() {
           )}
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Homework</DialogTitle>
+            <DialogDescription>
+              Assign a new homework / daily diary entry to a class.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Title" className="sm:col-span-2">
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Chapter 4 — Geometry exercises 4.1 to 4.3"
+              />
+            </FormField>
+            <FormField label="Subject">
+              <Input
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Class">
+              <Select
+                value={form.className}
+                onValueChange={(v) =>
+                  setForm({ ...form, className: v ?? "6" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 10 }, (_, i) => String(i + 1)).map(
+                    (c) => (
+                      <SelectItem key={c} value={c}>
+                        Class {c}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Teacher">
+              <Input
+                value={form.teacher}
+                onChange={(e) => setForm({ ...form, teacher: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Due Date">
+              <Input
+                type="date"
+                value={form.dueDate}
+                onChange={(e) =>
+                  setForm({ ...form, dueDate: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Description" className="sm:col-span-2">
+              <Textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!form.title.trim()) {
+                  toast.error("Title required");
+                  return;
+                }
+                const hw: Homework = {
+                  id: `HW-${Date.now().toString().slice(-5)}`,
+                  title: form.title.trim(),
+                  subject: form.subject,
+                  className: form.className,
+                  section: "A",
+                  assignedBy: form.teacher,
+                  assignedOn: new Date().toISOString().slice(0, 10),
+                  dueDate: form.dueDate,
+                  status: "Assigned",
+                  description: form.description,
+                };
+                addHomework(hw);
+                toast.success(`Assigned: ${hw.title}`);
+                setCreateOpen(false);
+                setForm((f) => ({ ...f, title: "", description: "" }));
+              }}
+            >
+              Assign
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

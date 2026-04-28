@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
+  DownloadIcon,
   GraduationCapIcon,
   PencilIcon,
   PlusIcon,
@@ -30,9 +31,10 @@ import {
 import { DataTable } from "@/components/reports/data-table";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FormField } from "@/components/dashboard/form-field";
-import { TEACHERS } from "@/lib/mock-data/reports";
 import type { TeacherRow } from "@/lib/types/reports";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
+import { downloadTeachersExcel } from "@/lib/utils/page-exports";
 
 const SUBJECTS = [
   "Bangla",
@@ -77,7 +79,10 @@ const blankForm = (): TeacherForm => ({
 });
 
 export default function TeachersPage() {
-  const [rows, setRows] = useState<TeacherRow[]>(TEACHERS);
+  const rows = useSchoolStore((s) => s.teachers);
+  const addTeacher = useSchoolStore((s) => s.addTeacher);
+  const updateTeacher = useSchoolStore((s) => s.updateTeacher);
+  const removeTeacher = useSchoolStore((s) => s.removeTeacher);
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeacherRow | null>(null);
@@ -118,12 +123,10 @@ export default function TeachersPage() {
   function handleSubmit() {
     if (!validate()) return;
     if (editing) {
-      setRows((prev) =>
-        prev.map((r) => (r.id === editing.id ? { ...editing, ...form } : r)),
-      );
+      updateTeacher(editing.id, form);
       toast.success(`Updated ${form.name}`);
     } else {
-      setRows((prev) => [{ ...form }, ...prev]);
+      addTeacher({ ...form });
       toast.success(`Added ${form.name}`);
     }
     setDialogOpen(false);
@@ -131,7 +134,7 @@ export default function TeachersPage() {
   function handleDelete() {
     if (!deleteId) return;
     const target = rows.find((r) => r.id === deleteId);
-    setRows((prev) => prev.filter((r) => r.id !== deleteId));
+    removeTeacher(deleteId);
     toast.success(`Removed ${target?.name ?? deleteId}`);
     setDeleteId(null);
   }
@@ -194,9 +197,21 @@ export default function TeachersPage() {
         title="Teachers"
         description="Manage teaching staff, subjects and payroll details."
         actions={
-          <Button onClick={openCreate}>
-            <PlusIcon /> Add Teacher
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadTeachersExcel(filtered);
+                toast.success(`Exported ${filtered.length} teachers`);
+              }}
+            >
+              <DownloadIcon /> Export Excel
+            </Button>
+            <Button onClick={openCreate}>
+              <PlusIcon /> Add Teacher
+            </Button>
+          </div>
         }
       />
 

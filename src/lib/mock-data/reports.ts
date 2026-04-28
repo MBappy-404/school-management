@@ -165,16 +165,16 @@ export const STUDENTS: StudentRow[] = Array.from({ length: 80 }, (_, i) => {
   };
 });
 
-export function buildStudentReport(): StudentReport {
-  const total = STUDENTS.length;
-  const males = STUDENTS.filter((s) => s.gender === "Male").length;
+export function buildStudentReport(rows: StudentRow[] = STUDENTS): StudentReport {
+  const total = rows.length;
+  const males = rows.filter((s) => s.gender === "Male").length;
   const females = total - males;
-  const transfers = STUDENTS.filter((s) => s.status === "Transferred").length;
-  const dropouts = STUDENTS.filter((s) => s.status === "Dropout").length;
+  const transfers = rows.filter((s) => s.status === "Transferred").length;
+  const dropouts = rows.filter((s) => s.status === "Dropout").length;
 
   const classDistribution = CLASS_OPTIONS.map((c) => ({
     label: c.label,
-    value: STUDENTS.filter((s) => s.className === c.value).length,
+    value: rows.filter((s) => s.className === c.value).length,
   }));
 
   const months = [
@@ -217,7 +217,7 @@ export function buildStudentReport(): StudentReport {
         tone: "negative",
       },
     ],
-    rows: STUDENTS,
+    rows,
     classDistribution,
     admissionTrend,
     genderSplit: [
@@ -243,15 +243,15 @@ export const TEACHERS: TeacherRow[] = Array.from({ length: 24 }, (_, i) => {
   };
 });
 
-export function buildTeacherReport(): TeacherReport {
-  const total = TEACHERS.length;
+export function buildTeacherReport(rows: TeacherRow[] = TEACHERS): TeacherReport {
+  const total = rows.length;
   const avgAttendance =
-    TEACHERS.reduce((acc, t) => acc + t.attendancePct, 0) / total;
-  const totalSalary = TEACHERS.reduce((acc, t) => acc + t.monthlySalary, 0);
+    rows.reduce((acc, t) => acc + t.attendancePct, 0) / Math.max(1, total);
+  const totalSalary = rows.reduce((acc, t) => acc + t.monthlySalary, 0);
 
-  const subjects = Array.from(new Set(TEACHERS.map((t) => t.subject)));
+  const subjects = Array.from(new Set(rows.map((t) => t.subject)));
   const attendanceBySubject = subjects.map((s) => {
-    const teachers = TEACHERS.filter((t) => t.subject === s);
+    const teachers = rows.filter((t) => t.subject === s);
     const avg =
       teachers.reduce((acc, t) => acc + t.attendancePct, 0) /
       Math.max(1, teachers.length);
@@ -295,7 +295,7 @@ export function buildTeacherReport(): TeacherReport {
         value: String(subjects.length),
       },
     ],
-    rows: TEACHERS,
+    rows,
     attendanceBySubject,
     salaryTrend,
   };
@@ -347,14 +347,17 @@ export const FEES: FeesRow[] = STUDENTS.flatMap((student, idx) =>
   }),
 );
 
-export function buildFeesReport(): FeesReport {
-  const totalDue = FEES.reduce((a, f) => a + f.due, 0);
-  const totalPaid = FEES.reduce((a, f) => a + f.paid, 0);
-  const totalFine = FEES.reduce((a, f) => a + f.fine, 0);
-  const collectionPct = (totalPaid / (totalPaid + totalDue)) * 100;
+export function buildFeesReport(rows: FeesRow[] = FEES): FeesReport {
+  const totalDue = rows.reduce((a, f) => a + f.due, 0);
+  const totalPaid = rows.reduce((a, f) => a + f.paid, 0);
+  const totalFine = rows.reduce((a, f) => a + f.fine, 0);
+  const collectionPct =
+    totalPaid + totalDue > 0
+      ? (totalPaid / (totalPaid + totalDue)) * 100
+      : 0;
 
   const monthlyCollection = MONTHS_SHORT.slice(0, 6).map((m) => {
-    const monthRows = FEES.filter((f) => f.month === m);
+    const monthRows = rows.filter((f) => f.month === m);
     const bKash = monthRows
       .filter((f) => f.paymentMethod === "bKash")
       .reduce((a, f) => a + f.paid, 0);
@@ -373,10 +376,9 @@ export function buildFeesReport(): FeesReport {
     "Cash",
   ].map((m) => ({
     label: m,
-    value: FEES.filter((f) => f.paymentMethod === m).reduce(
-      (a, f) => a + f.paid,
-      0,
-    ),
+    value: rows
+      .filter((f) => f.paymentMethod === m)
+      .reduce((a, f) => a + f.paid, 0),
   }));
 
   return {
@@ -402,7 +404,7 @@ export function buildFeesReport(): FeesReport {
         tone: collectionPct > 80 ? "positive" : "negative",
       },
     ],
-    rows: FEES,
+    rows,
     monthlyCollection,
     duesVsPaid: [
       { label: "Paid", value: totalPaid },

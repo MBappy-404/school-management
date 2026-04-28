@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { PlusIcon, WalletIcon } from "lucide-react";
+import { DownloadIcon, PlusIcon, WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,11 @@ import { DataTable } from "@/components/reports/data-table";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { FormField } from "@/components/dashboard/form-field";
-import {
-  FEES,
-  PAYMENT_METHODS,
-  STUDENTS,
-} from "@/lib/mock-data/reports";
+import { PAYMENT_METHODS } from "@/lib/mock-data/reports";
+import { useSchoolStore } from "@/lib/store/school-store";
 import type { FeesRow, PaymentMethod } from "@/lib/types/reports";
 import { formatBDT } from "@/lib/utils/bdt";
+import { downloadFeesExcel } from "@/lib/utils/page-exports";
 
 const STATUS_TONE: Record<FeesRow["status"], string> = {
   Paid: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
@@ -57,15 +55,18 @@ interface PaymentForm {
   paymentMethod: PaymentMethod;
 }
 
-const blankForm = (): PaymentForm => ({
-  studentId: STUDENTS[0]?.id ?? "",
-  month: new Date().toLocaleString("en-US", { month: "short" }),
-  amount: 2500,
-  paymentMethod: "bKash",
-});
-
 export default function FeesPage() {
-  const [rows, setRows] = useState<FeesRow[]>(FEES);
+  const STUDENTS = useSchoolStore((s) => s.students);
+  const rows = useSchoolStore((s) => s.fees);
+  const recordFeePayment = useSchoolStore((s) => s.recordFeePayment);
+
+  const blankForm = (): PaymentForm => ({
+    studentId: STUDENTS[0]?.id ?? "",
+    month: new Date().toLocaleString("en-US", { month: "short" }),
+    amount: 2500,
+    paymentMethod: "bKash",
+  });
+
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -119,7 +120,7 @@ export default function FeesPage() {
       paymentDate: new Date().toISOString().slice(0, 10),
       status: "Paid",
     };
-    setRows((prev) => [newRow, ...prev]);
+    recordFeePayment(newRow);
     toast.success(
       `Recorded ${formatBDT(form.amount)} from ${student.name} via ${form.paymentMethod}`,
     );
@@ -193,9 +194,21 @@ export default function FeesPage() {
         title="Fees Collection"
         description="Record monthly tuition payments via bKash, Nagad or Cash."
         actions={
-          <Button onClick={openCreate}>
-            <PlusIcon /> Record Payment
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadFeesExcel(filtered);
+                toast.success(`Exported ${filtered.length} rows`);
+              }}
+            >
+              <DownloadIcon /> Export Excel
+            </Button>
+            <Button onClick={openCreate}>
+              <PlusIcon /> Record Payment
+            </Button>
+          </div>
         }
       />
 

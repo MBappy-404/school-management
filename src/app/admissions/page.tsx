@@ -35,11 +35,13 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
-  ADMISSIONS,
   type Admission,
   type AdmissionStatus,
 } from "@/lib/mock-data/extended";
 import { SCHOOL_INFO } from "@/lib/mock-data/reports";
+import { useSchoolStore } from "@/lib/store/school-store";
+import { downloadAdmissionsExcel } from "@/lib/utils/page-exports";
+import { FormField } from "@/components/dashboard/form-field";
 
 const STATUS_VARIANT: Record<
   AdmissionStatus,
@@ -59,9 +61,34 @@ function formatDate(iso: string) {
   });
 }
 
+interface ApplicantForm {
+  applicantName: string;
+  appliedClass: string;
+  guardianName: string;
+  phone: string;
+  previousSchool: string;
+  gender: "Male" | "Female";
+  dob: string;
+}
+
+const blankApplicant = (): ApplicantForm => ({
+  applicantName: "",
+  appliedClass: "6",
+  guardianName: "",
+  phone: "",
+  previousSchool: "",
+  gender: "Male",
+  dob: "2014-01-01",
+});
+
 export default function AdmissionsPage() {
-  const [rows, setRows] = useState<Admission[]>(ADMISSIONS);
+  const rows = useSchoolStore((s) => s.admissions);
+  const addAdmission = useSchoolStore((s) => s.addAdmission);
+  const updateAdmission = useSchoolStore((s) => s.updateAdmission);
   const [search, setSearch] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState<ApplicantForm>(blankApplicant);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [classFilter, setClassFilter] = useState<string>("All");
   const [preview, setPreview] = useState<Admission | null>(null);
@@ -94,12 +121,40 @@ export default function AdmissionsPage() {
   }, [rows]);
 
   function update(id: string, status: AdmissionStatus) {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status } : r)),
-    );
+    updateAdmission(id, { status });
     toast.success(`Application ${status.toLowerCase()}`, {
       description: `${id} marked as ${status}.`,
     });
+  }
+
+  function validateApplicant(): boolean {
+    const e: Record<string, string> = {};
+    if (!form.applicantName.trim()) e.applicantName = "Required";
+    if (!form.guardianName.trim()) e.guardianName = "Required";
+    if (!/^\+?[0-9 -]{6,}$/.test(form.phone)) e.phone = "Invalid phone";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function submitApplicant() {
+    if (!validateApplicant()) return;
+    const newApp: Admission = {
+      id: `ADM-${Date.now().toString().slice(-6)}`,
+      applicantName: form.applicantName.trim(),
+      appliedClass: form.appliedClass,
+      guardianName: form.guardianName.trim(),
+      phone: form.phone,
+      appliedOn: new Date().toISOString().slice(0, 10),
+      previousSchool: form.previousSchool || "—",
+      gender: form.gender,
+      dob: form.dob,
+      status: "Pending",
+      score: 0,
+    };
+    addAdmission(newApp);
+    toast.success(`Application received: ${newApp.applicantName}`);
+    setCreateOpen(false);
+    setForm(blankApplicant());
   }
 
   return (
@@ -109,10 +164,17 @@ export default function AdmissionsPage() {
         description="ভর্তি — applicant queue, screening scores and admission decisions."
         actions={
           <>
-            <Button variant="outline">
-              <PrinterIcon /> Print Queue
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadAdmissionsExcel(filtered);
+                toast.success(`Exported ${filtered.length} applicants`);
+              }}
+            >
+              <PrinterIcon /> Export Queue
             </Button>
-            <Button>
+            <Button onClick={() => setCreateOpen(true)}>
               <UserPlusIcon /> New Application
             </Button>
           </>
@@ -355,9 +417,108 @@ export default function AdmissionsPage() {
             <Button variant="outline" onClick={() => setPreview(null)}>
               Close
             </Button>
-            <Button onClick={() => toast.message("Admit card downloaded (demo)")}>
+            <Button
+              onClick={() => {
+                if (typeof window !== "undefined") window.print();
+              }}
+            >
               <PrinterIcon /> Print Admit Card
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>New Application</DialogTitle>
+            <DialogDescription>
+              Register a new admission applicant.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Applicant Name" error={errors.applicantName}>
+              <Input
+                value={form.applicantName}
+                onChange={(e) =>
+                  setForm({ ...form, applicantName: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Class">
+              <Select
+                value={form.appliedClass}
+                onValueChange={(v) =>
+                  setForm({ ...form, appliedClass: v ?? "6" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 10 }, (_, i) => `${i + 1}`).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      Class {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Guardian Name" error={errors.guardianName}>
+              <Input
+                value={form.guardianName}
+                onChange={(e) =>
+                  setForm({ ...form, guardianName: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Phone" error={errors.phone}>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="01XXXXXXXXX"
+              />
+            </FormField>
+            <FormField label="Gender">
+              <Select
+                value={form.gender}
+                onValueChange={(v) =>
+                  setForm({
+                    ...form,
+                    gender: (v as "Male" | "Female") ?? "Male",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Date of Birth">
+              <Input
+                type="date"
+                value={form.dob}
+                onChange={(e) => setForm({ ...form, dob: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Previous School" className="sm:col-span-2">
+              <Input
+                value={form.previousSchool}
+                onChange={(e) =>
+                  setForm({ ...form, previousSchool: e.target.value })
+                }
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitApplicant}>Submit Application</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

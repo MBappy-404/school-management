@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   CheckCircle2Icon,
   ClockIcon,
@@ -7,13 +8,25 @@ import {
   PlusIcon,
   RadioIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { ONLINE_EXAMS } from "@/lib/mock-data/extended";
+import type { OnlineExam } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 
 const STATUS_VARIANT: Record<
   string,
@@ -34,6 +47,20 @@ function formatDate(iso: string) {
 }
 
 export default function OnlineExamsPage() {
+  const ONLINE_EXAMS = useSchoolStore((s) => s.onlineExams);
+  const addOnlineExam = useSchoolStore((s) => s.addOnlineExam);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState(() => ({
+    title: "",
+    className: "9",
+    subject: "Mathematics",
+    duration: 30,
+    totalQuestions: 20,
+    totalMarks: 20,
+    scheduledOn: new Date(Date.now() + 86400000)
+      .toISOString()
+      .slice(0, 10),
+  }));
   const total = ONLINE_EXAMS.length;
   const live = ONLINE_EXAMS.filter((e) => e.status === "Live").length;
   const upcoming = ONLINE_EXAMS.filter(
@@ -47,7 +74,7 @@ export default function OnlineExamsPage() {
         title="Online Exams"
         description="অনলাইন পরীক্ষা — quiz creation, scheduling and live monitoring."
         actions={
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <PlusIcon /> Create Exam
           </Button>
         }
@@ -152,6 +179,111 @@ export default function OnlineExamsPage() {
           ))}
         </div>
       </SectionCard>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Online Exam</DialogTitle>
+            <DialogDescription>
+              Schedule a new quiz / online exam.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Title" className="sm:col-span-2">
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Class 9 - Math Chapter 2 Quiz"
+              />
+            </FormField>
+            <FormField label="Class">
+              <Input
+                value={form.className}
+                onChange={(e) =>
+                  setForm({ ...form, className: e.target.value })
+                }
+              />
+            </FormField>
+            <FormField label="Subject">
+              <Input
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Duration (min)">
+              <Input
+                type="number"
+                value={form.duration}
+                onChange={(e) =>
+                  setForm({ ...form, duration: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Questions">
+              <Input
+                type="number"
+                value={form.totalQuestions}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    totalQuestions: Number(e.target.value),
+                  })
+                }
+              />
+            </FormField>
+            <FormField label="Total Marks">
+              <Input
+                type="number"
+                value={form.totalMarks}
+                onChange={(e) =>
+                  setForm({ ...form, totalMarks: Number(e.target.value) })
+                }
+              />
+            </FormField>
+            <FormField label="Scheduled On">
+              <Input
+                type="date"
+                value={form.scheduledOn}
+                onChange={(e) =>
+                  setForm({ ...form, scheduledOn: e.target.value })
+                }
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!form.title.trim()) {
+                  toast.error("Title required");
+                  return;
+                }
+                const exam: OnlineExam = {
+                  id: `OEX-${Date.now().toString().slice(-5)}`,
+                  title: form.title.trim(),
+                  className: form.className,
+                  subject: form.subject,
+                  duration: form.duration,
+                  totalQuestions: form.totalQuestions,
+                  totalMarks: form.totalMarks,
+                  scheduledOn: form.scheduledOn,
+                  status: "Draft",
+                  attempts: 0,
+                  passRate: 0,
+                };
+                addOnlineExam(exam);
+                toast.success(`Created exam: ${exam.title}`);
+                setCreateOpen(false);
+                setForm((f) => ({ ...f, title: "" }));
+              }}
+            >
+              Create Exam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

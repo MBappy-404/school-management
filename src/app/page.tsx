@@ -30,10 +30,9 @@ import {
   buildFeesReport,
   buildStudentReport,
   buildTeacherReport,
-  STUDENTS,
 } from "@/lib/mock-data/reports";
-import { EVENTS, NOTICES } from "@/lib/mock-data/notices";
-import { ADMISSIONS, BOOK_ISSUES, BUS_ROUTES } from "@/lib/mock-data/extended";
+import { EVENTS } from "@/lib/mock-data/notices";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
 
 const NOTICE_DOT: Record<string, string> = {
@@ -73,9 +72,17 @@ function formatRelative(iso: string): string {
 }
 
 export default function DashboardPage() {
-  const fees = buildFeesReport();
-  const students = buildStudentReport();
-  const teachers = buildTeacherReport();
+  const STUDENTS = useSchoolStore((s) => s.students);
+  const TEACHERS = useSchoolStore((s) => s.teachers);
+  const FEES = useSchoolStore((s) => s.fees);
+  const NOTICES = useSchoolStore((s) => s.notices);
+  const ADMISSIONS = useSchoolStore((s) => s.admissions);
+  const BOOK_ISSUES = useSchoolStore((s) => s.bookIssues);
+  const BUS_ROUTES = useSchoolStore((s) => s.busRoutes);
+
+  const fees = buildFeesReport(FEES);
+  const students = buildStudentReport(STUDENTS);
+  const teachers = buildTeacherReport(TEACHERS);
   const attendance = buildAttendanceReport();
   const exams = buildExamReport();
 

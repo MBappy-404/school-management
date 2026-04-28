@@ -7,14 +7,33 @@ import {
   PlusIcon,
   TrophyIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FormField } from "@/components/dashboard/form-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { GALLERY, ACHIEVEMENTS } from "@/lib/mock-data/extended";
+import { ACHIEVEMENTS, type GalleryAlbum } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 
 const ACH_TONE: Record<string, "info" | "success" | "violet"> = {
   Academic: "info",
@@ -30,8 +49,24 @@ function formatDate(iso: string) {
   });
 }
 
+const COVERS = [
+  "from-indigo-500 to-violet-600",
+  "from-rose-500 to-orange-500",
+  "from-emerald-500 to-teal-600",
+  "from-sky-500 to-blue-600",
+  "from-amber-500 to-rose-500",
+];
+
 export default function GalleryPage() {
+  const GALLERY = useSchoolStore((s) => s.gallery);
+  const addAlbum = useSchoolStore((s) => s.addAlbum);
   const [filter, setFilter] = useState("All");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    category: "Sports" as GalleryAlbum["category"],
+    count: 20,
+  });
 
   const filtered = GALLERY.filter(
     (g) => filter === "All" || g.category === filter,
@@ -44,10 +79,16 @@ export default function GalleryPage() {
         description="স্মৃতি — albums, photos and student achievements showcase."
         actions={
           <>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setCreateOpen(true)}>
               <PlusIcon /> Add Album
             </Button>
-            <Button>
+            <Button
+              onClick={() =>
+                toast.info(
+                  "Achievement form coming \u2014 use Albums to upload event photos",
+                )
+              }
+            >
               <TrophyIcon /> Add Achievement
             </Button>
           </>
@@ -172,6 +213,85 @@ export default function GalleryPage() {
           </SectionCard>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Album</DialogTitle>
+            <DialogDescription>
+              Create a new event / photo album.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <FormField label="Title">
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Annual Cultural Programme 2026"
+              />
+            </FormField>
+            <FormField label="Category">
+              <Select
+                value={form.category}
+                onValueChange={(v) =>
+                  setForm({
+                    ...form,
+                    category: (v as GalleryAlbum["category"]) ?? "Sports",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Sports">Sports</SelectItem>
+                  <SelectItem value="Cultural">Cultural</SelectItem>
+                  <SelectItem value="Academic">Academic</SelectItem>
+                  <SelectItem value="Field Trip">Field Trip</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Photo Count">
+              <Input
+                type="number"
+                value={form.count}
+                onChange={(e) =>
+                  setForm({ ...form, count: Number(e.target.value) })
+                }
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!form.title.trim()) {
+                  toast.error("Title required");
+                  return;
+                }
+                const cover =
+                  COVERS[GALLERY.length % COVERS.length] ?? COVERS[0]!;
+                const album: GalleryAlbum = {
+                  id: `GAL-${Date.now().toString().slice(-5)}`,
+                  title: form.title.trim(),
+                  category: form.category,
+                  date: new Date().toISOString().slice(0, 10),
+                  cover,
+                  count: form.count,
+                };
+                addAlbum(album);
+                toast.success(`Added album: ${album.title}`);
+                setCreateOpen(false);
+                setForm({ title: "", category: "Sports", count: 20 });
+              }}
+            >
+              Save Album
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

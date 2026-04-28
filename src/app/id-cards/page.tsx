@@ -22,13 +22,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { STUDENTS } from "@/lib/mock-data/reports";
 import { SCHOOL_INFO } from "@/lib/mock-data/reports";
+import { useSchoolStore } from "@/lib/store/school-store";
+import { toast } from "sonner";
+
+import type { StudentRow } from "@/lib/types/reports";
 
 function StudentIDCard({
   student,
 }: {
-  student: (typeof STUDENTS)[number];
+  student: StudentRow;
 }) {
   return (
     <div className="aspect-[1.6/1] w-full overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -100,6 +103,7 @@ function StudentIDCard({
 }
 
 export default function IdCardsPage() {
+  const STUDENTS = useSchoolStore((s) => s.students);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState("All");
 
@@ -113,7 +117,7 @@ export default function IdCardsPage() {
         return false;
       return true;
     }).slice(0, 12);
-  }, [search, classFilter]);
+  }, [STUDENTS, search, classFilter]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,7 +125,12 @@ export default function IdCardsPage() {
         title="ID & Admit Card Generator"
         description="পরিচয়পত্র — bulk-print student ID cards and exam admit cards."
         actions={
-          <Button>
+          <Button
+            onClick={() => {
+              toast.success(`Printing ${filtered.length} ID cards`);
+              window.print();
+            }}
+          >
             <PrinterIcon /> Print Selected
           </Button>
         }

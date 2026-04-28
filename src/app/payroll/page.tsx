@@ -5,9 +5,11 @@ import {
   CheckCircle2Icon,
   ClockIcon,
   CreditCardIcon,
+  DownloadIcon,
   PauseCircleIcon,
   WalletIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,8 +24,10 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { PAYROLL, type SalaryStatus } from "@/lib/mock-data/extended";
+import { type SalaryStatus } from "@/lib/mock-data/extended";
+import { useSchoolStore } from "@/lib/store/school-store";
 import { formatBDT } from "@/lib/utils/bdt";
+import { downloadPayrollExcel } from "@/lib/utils/page-exports";
 
 const STATUS_VARIANT: Record<SalaryStatus, "success" | "warning" | "danger"> = {
   Paid: "success",
@@ -32,6 +36,8 @@ const STATUS_VARIANT: Record<SalaryStatus, "success" | "warning" | "danger"> = {
 };
 
 export default function PayrollPage() {
+  const PAYROLL = useSchoolStore((s) => s.payroll);
+  const markPayroll = useSchoolStore((s) => s.markPayroll);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
@@ -47,7 +53,7 @@ export default function PayrollPage() {
         return false;
       return true;
     });
-  }, [search, statusFilter]);
+  }, [PAYROLL, search, statusFilter]);
 
   const totalPayroll = PAYROLL.reduce((s, p) => s + p.net, 0);
   const totalPaid = PAYROLL.filter((p) => p.status === "Paid").reduce(
@@ -62,7 +68,36 @@ export default function PayrollPage() {
       <PageHeader
         title="Payroll"
         description="বেতন — staff salary disbursement and history."
-        actions={<Button><CreditCardIcon /> Run Payroll</Button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadPayrollExcel(filtered);
+                toast.success(`Exported ${filtered.length} rows`);
+              }}
+            >
+              <DownloadIcon /> Export Excel
+            </Button>
+            <Button
+              onClick={() => {
+                const pending = PAYROLL.filter(
+                  (p) => p.status === "Pending",
+                );
+                pending.forEach((p) => markPayroll(p.id, "Paid"));
+                toast.success(
+                  `Disbursed ${pending.length} salaries (${formatBDT(
+                    pending.reduce((s, p) => s + p.net, 0),
+                    { compact: true },
+                  )})`,
+                );
+              }}
+            >
+              <CreditCardIcon /> Run Payroll
+            </Button>
+          </div>
+        }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -157,9 +192,25 @@ export default function PayrollPage() {
                     {formatBDT(p.net)}
                   </td>
                   <td className="px-3 py-2">
-                    <Badge variant={STATUS_VARIANT[p.status]}>
-                      {p.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={STATUS_VARIANT[p.status]}>
+                        {p.status}
+                      </Badge>
+                      {p.status !== "Paid" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            markPayroll(p.id, "Paid");
+                            toast.success(
+                              `${p.staffName} paid ${formatBDT(p.net)}`,
+                            );
+                          }}
+                        >
+                          Mark Paid
+                        </Button>
+                      )}
+                    </div>
                     {p.paidOn && (
                       <div className="mt-0.5 text-[10px] text-muted-foreground">
                         on{" "}

@@ -435,6 +435,10 @@ export const BOOKS: Book[] = BOOK_TITLES.map((b, i) => {
 export const BOOK_ISSUES: BookIssue[] = Array.from({ length: 16 }, (_, i) => {
   const isStudent = rand() > 0.3;
   const book = BOOKS[int(0, BOOKS.length - 1)]!;
+  const borrowerIdx = isStudent
+    ? int(0, STUDENTS.length - 1)
+    : int(0, TEACHERS.length - 1);
+  const borrower = isStudent ? STUDENTS[borrowerIdx] : TEACHERS[borrowerIdx];
   const days = -int(1, 30);
   const due = days + int(7, 21);
   const returned = rand() > 0.55;
@@ -443,12 +447,8 @@ export const BOOK_ISSUES: BookIssue[] = Array.from({ length: 16 }, (_, i) => {
     bookId: book.id,
     bookTitle: book.title,
     borrowerType: isStudent ? "Student" : "Teacher",
-    borrowerName: isStudent
-      ? STUDENTS[int(0, STUDENTS.length - 1)]?.name ?? "Student"
-      : TEACHERS[int(0, TEACHERS.length - 1)]?.name ?? "Teacher",
-    borrowerId: isStudent
-      ? STUDENTS[int(0, STUDENTS.length - 1)]?.id ?? "STD-1000"
-      : TEACHERS[int(0, TEACHERS.length - 1)]?.id ?? "TCH-100",
+    borrowerName: borrower?.name ?? (isStudent ? "Student" : "Teacher"),
+    borrowerId: borrower?.id ?? (isStudent ? "STD-1000" : "TCH-100"),
     issuedOn: offset(days),
     dueDate: offset(due),
     returned,
